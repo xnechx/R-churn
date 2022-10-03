@@ -1,0 +1,53 @@
+library(tidyverse)
+library(caret)
+
+df <- read_csv("churn.csv")
+glimpse(df)
+head(df)
+table(df$churn)
+
+# convert churn as factor
+df <- df %>%
+  mutate(churn = factor(churn),
+         internationalplan = factor(internationalplan),
+         voicemailplan = factor(voicemailplan))
+
+# checking missing values
+mean(complete.cases(df))
+
+# split data 
+set.seed(45)
+id <- createDataPartition(df$churn,
+                          p = 0.8,
+                          list = F)
+train_df <- df[id, ]
+test_df <- df[-id, ]
+
+# train data
+set.seed(45)
+myGrid <- data.frame(mtry = 2:16)
+ctrl <- trainControl(method = "cv",
+                     number = 5,
+                     classProbs = T,
+                     summaryFunction = prSummary,
+                     verboseIter = T)
+
+rf_model <- train(churn ~ ., 
+                  data = train_df,
+                  method = "rf",
+                  metric = "AUC",
+                  trControl = ctrl,
+                  preProcess = c("center", "scale"),
+                  tuneGrid = myGrid)
+
+# best mtry is 2,  AUC = 0.9684
+
+# test data
+p <- predict(rf_model, newdata = test_df)
+
+# confusion matrix
+confusionMatrix(p, test_df$churn,
+                mode = "prec_recall",
+                positive = "Yes")
+
+# precision = 0.9667  , recall = 0.6170
